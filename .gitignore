@@ -14,3 +14,5 @@ mandel_c
 .cache/
 
 env/
+
+*.plt
