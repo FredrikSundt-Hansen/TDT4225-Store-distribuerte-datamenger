@@ -35,12 +35,15 @@ class Repo:
         self.cursor.execute(query)
         self.db_connection.commit()
 
+    def delete_from_user_table(self):
+        query = f"DELETE FROM {USER_TABLE_NAME}"
+        self.cursor.execute(query)
+        self.db_connection.commit()
 
     def setup_schema(self):
         self.create_user_table()
         self.create_activity_table()
         self.create_trackpoint_table()
-        self.show_tables()
 
     def bulk_insert_users(self, data: list):
         query = f"INSERT INTO {USER_TABLE_NAME} ({USER_TABLE_INSERT}) VALUES (%s, %s)"
@@ -60,133 +63,107 @@ class Repo:
             batch_data = data[i:i + batch_size]  
             self.cursor.executemany(query, batch_data)  
             self.db_connection.commit()  
-
-    def iter_users(self, limit, labeled_users):
-        users = {}
-
-        i = 0
-        for root, _, _ in os.walk('dataset/Data/', topdown=True):
-            user_id = root.split('/')[-1]
+    
+    def process_labeled_timestamp(self, labeled_timestamp, lines: list[str]):
+        for line in lines:
+            labels_line = line.strip().split('\t')
             
+            start_date_time = labels_line[0].replace('/', '-')
+            end_end_time = labels_line[1].replace('/', '-')
+            
+            val = labels_line[-1]
+
+            labeled_timestamp[(start_date_time, end_end_time)] = val
+        
+    def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, labeled_timestamp: dict, file_name, last_line: list[str]):
+        date_time_obj = datetime.strptime(file_name.split('.')[0], '%Y%m%d%H%M%S')
+        start_date_time = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
+
+        date_part = last_line[-2].strip()  
+        time_part = last_line[-1].strip() 
+        end_date_time = f"{date_part} {time_part}"  
+
+        transportation_mode = None
+        if (start_date_time, end_date_time) in labeled_timestamp:
+            transportation_mode = labeled_timestamp[(start_date_time, end_date_time)]
+
+        activity_data.append((activity_id, user_id, transportation_mode, start_date_time, end_date_time))
+    
+    def process_track_point_data(self, track_point_data: list, activity_id: int, lines: list[str]):
+        for line in lines: 
+            data = line.split(',')
+            lat = data[0]
+            lon = data[1]
+            altitude = data[3]
+            date_days = data[4]
+            date = data[5]
+            time = data[6]
+            date_time = f"{date} {time}" 
+
+            track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
+    
+    def iter_dataset(self, limit):
+        user_data = []
+        activity_data = []
+        track_point_data = []
+
+        labeled_users = self.read_labeled_ids(LABELED_ID_PATH)
+        
+        i = 0
+        activity_id = 0
+        for root, _, _ in os.walk(DATASET_PATH, topdown=True):
+            user_id = root.split('/')[-1]
+
             if not user_id.isdigit():
                 continue
 
-            users[user_id] = False
+            if user_id in labeled_users:
+                user_data.append((user_id, True))
+            else:
+                user_data.append((user_id, False))
 
+            labeled_timestamp = {}
+            if user_id in labeled_users:
+                with open(os.path.join(DATASET_PATH, user_id, USER_LABEL_FILE)) as f:
+                    lines = f.readlines()[LABELED_ID_FILE_HEADER_SIZE:]
+                    self.process_labeled_timestamp(labeled_timestamp, lines)
+            
+            data_files_path = os.path.join(DATASET_PATH, user_id, DATA_FILES_DIR)
+
+            for _, _, files in os.walk(data_files_path):
+                for file in files:
+                    file_path = os.path.join(data_files_path, file)
+
+                    with open(file_path, 'r') as f:
+                        lines = f.readlines()[USER_DATA_HEADER_SIZE:]
+
+                        if len(lines) > MAX_TRACK_POINTS:
+                            continue
+                        
+                        last_line = lines[-1].split(',')
+                        activity_id += 1
+                        self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, file, last_line)
+                        
+                        self.process_track_point_data(track_point_data, activity_id, lines)
+
+            # Limit to reduce amount of data            
             i += 1
             if i >= limit:
                 break
-
-        for user_id in labeled_users:
-            if user_id in users:  
-                users[user_id] = True  
-
-        return [(user, users[user]) for user in users]
-
-    def iter_activities(self, user_data, labeled_users):
-        activites_data = []
-        activites_id = 0
-        for user_id, _ in user_data:
-
-            labeled_times = {}
-            if user_id in labeled_users:
-                with open(os.path.join('dataset/Data/', user_id, 'labels.txt')) as f:
-                    lines = f.readlines()[1:] 
-                    for line in lines:
-                        labels_line = line.strip().split('\t')
-
-                        start_date_time = labels_line[0].replace('/', '-')
-                        end_end_time = labels_line[1].replace('/', '-')
-                        val = labels_line[-1]
-
-                        labeled_times[(start_date_time, end_end_time)] = val
-
-            trajectory_path = os.path.join('dataset/Data/', user_id, 'Trajectory')
-            
-            start_date_time = None
-            end_end_time = None
-            transportation_mode = None
-
-            for _, _, files in os.walk(trajectory_path):
-                for file in files:
-                    file_path = os.path.join(trajectory_path, file)
-
-                    count = 0
-                    with open(file_path, 'r') as f:
-                        count = len(f.readlines()[6:])
-
-                    if count > 2500:
-                        continue
-
-                    date_time_obj = datetime.strptime(file.split('.')[0], '%Y%m%d%H%M%S')
-                    start_date_time = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
-
-                    with open(file_path, 'r') as f:
-                        lines = f.readlines()[-1].split(',')
-                        date_part = lines[-2].strip()  
-                        time_part = lines[-1].strip() 
-                        end_end_time = f"{date_part} {time_part}"  
-            
-                    if (start_date_time, end_end_time) in labeled_times:
-                        transportation_mode = labeled_times[(start_date_time, end_end_time)]
-
-                    activites_id += 1
-                    activites_data.append((file, user_id, activites_id, transportation_mode, start_date_time, end_end_time))
         
-        return activites_data
-        
-        
-    
-    def iter_track_points(self, activites_data):
-        track_point_data = []
-        for file, user_id, activites_id, _, _, _ in activites_data:
-            plt_path = os.path.join('dataset/Data/', user_id, 'Trajectory', str(file))
-            
-            lat = None
-            lon = None
-            altitude = None
-            date_days = None
-            date_time = None
+        return user_data, activity_data, track_point_data
 
-    
-            with open(plt_path, 'r') as f:
-                lines = f.readlines()[6:]
-                for line in lines:
-                    data = line.split(',')
-                    
-                    lat = data[0]
-                    lon = data[1]
-                    altitude = data[3]
-                    date_days = data[4]
-                    date = data[5]
-                    time = data[6]
-                    date_time = f"{date} {time}"  
-
-                    track_point_data.append((activites_id, lat, lon, altitude, date_days, date_time))
-        
-        return track_point_data
-
-    def iter_data(self, limit=200):
-        labeled_users = self.read_labeled_ids('dataset/labeled_ids.txt')
-        
-        user_data = self.iter_users(limit, labeled_users)
-        activity_data = self.iter_activities(user_data, labeled_users)
-        track_point_data = self.iter_track_points(activity_data)
+    def process_dataset(self, limit=200):
+        user_data, activity_data, track_point_data = self.iter_dataset(limit)
         
         print(f"Count of users: {len(user_data)}")
         print(f"Count of activities: {len(activity_data)}")
         print(f"Count of track points: {len(track_point_data)}")
 
-        # Remove data that is not for insert
-        activity_insert = [(activity_id, user_id, transportation_mode, start_date_time, end_date_time) 
-                            for _, user_id, activity_id, transportation_mode, start_date_time, end_date_time in activity_data]
-        self.insert_dataset(user_data, activity_insert, track_point_data)
-    
-
-    def insert_dataset(self, user_data, activites_data, track_point_data):
         self.bulk_insert_users(user_data)
-        self.bulk_insert_activty(activites_data)
+        self.bulk_insert_activty(activity_data)
         self.bulk_insert_track_point(track_point_data)
+        
   
 
 
@@ -195,7 +172,7 @@ def main():
     try:
         repo = Repo()
         repo.setup_schema()
-        repo.iter_data()
+        repo.process_dataset()
     except Exception as e:
         print("ERROR:", e)
     finally:
