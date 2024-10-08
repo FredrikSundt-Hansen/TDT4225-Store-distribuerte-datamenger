@@ -2,14 +2,9 @@ from DbConnector import DbConnector
 from tabulate import tabulate
 import os
 from datetime import datetime
-
-def read_labeled_ids(path):
-    with open(path, 'r') as file:
-        return [line.strip() for line in file if line.strip()]
+from config import *
 
 class Repo:
-    
-
     def __init__(self):
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
@@ -19,44 +14,24 @@ class Repo:
         self.cursor.execute("SHOW TABLES")
         rows = self.cursor.fetchall()
         print(tabulate(rows, headers=self.cursor.column_names))
+
+    def read_labeled_ids(self, path):
+        with open(path, 'r') as file:
+            return [line.strip() for line in file if line.strip()]
     
+
     def create_user_table(self):
-        query = """
-        CREATE TABLE IF NOT EXISTS user (
-            id CHAR(3) NOT NULL,
-            has_labels BOOLEAN NOT NULL,
-            PRIMARY KEY (id)
-        )
-        """
+        query = f"CREATE TABLE IF NOT EXISTS {USER_TABLE_NAME} ({USER_TABLE_SCHEMA})"
         self.cursor.execute(query)
         self.db_connection.commit()
 
     def create_activity_table(self):
-        query = """ CREATE TABLE IF NOT EXISTS activity (
-                    id BIGINT NOT NULL,
-                    user_id CHAR(3) NOT NULL,
-                    transportation_mode VARCHAR(10) NULL,
-                    start_date_time DATETIME(0) NOT NULL,
-                    end_date_time DATETIME(0) NOT NULL,
-                    PRIMARY KEY (id),
-                    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE)
-                """
+        query = f"CREATE TABLE IF NOT EXISTS {ACTIVITY_TABLE_NAME} ({ACTIVITY_TABLE_SCHEMA})"
         self.cursor.execute(query)
         self.db_connection.commit()
 
     def create_trackpoint_table(self):
-        query = """CREATE TABLE IF NOT EXISTS track_point (
-                   id INT AUTO_INCREMENT NOT NULL,
-                   activity_id BIGINT NOT NULL,
-                   lat DOUBLE(9, 6) NOT NULL,
-                   lon DOUBLE(9, 6) NULL,
-                   altitude INT NOT NULL,
-                   date_days DOUBLE(15, 10) NOT NULL,
-                   date_time DATETIME(0) NOT NULL,
-                   PRIMARY KEY (id),
-                   FOREIGN KEY (activity_id) REFERENCES activity(id) ON DELETE CASCADE ON UPDATE CASCADE
-                   )
-                """
+        query = f"CREATE TABLE IF NOT EXISTS {TRACK_POINT_TABLE_NAME} ({TRACK_POINT_TABLE_SCHEMA})"
         self.cursor.execute(query)
         self.db_connection.commit()
 
@@ -84,20 +59,25 @@ class Repo:
         self.cursor.executemany(query, data)
         self.db_connection.commit()
 
-    def bulk_insert_track_point(self, data: list):
+    # One row is 48 bytes, MYSQL default max packet size = 16 MB
+    # 16 MB / 48 bytes = 349525, thus 349525 - 1 batch size
+    def bulk_insert_track_point(self, data: list, batch_size: int = int(349525 / 6)):
         query = """
-                INSERT INTO track_point (
-                    activity_id, 
-                    lat,
-                    lon,
-                    altitude,
-                    date_days,
-                    date_time) 
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """
-        self.cursor.executemany(query, data)
-        self.db_connection.commit()
-    
+            INSERT INTO track_point (
+                activity_id, 
+                lat,
+                lon,
+                altitude,
+                date_days,
+                date_time) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+
+        for i in range(0, len(data), batch_size):
+            batch_data = data[i:i + batch_size]  
+            self.cursor.executemany(query, batch_data)  
+            self.db_connection.commit()  
+
     def iter_users(self, limit, labeled_users):
         users = {}
 
@@ -122,6 +102,7 @@ class Repo:
 
     def iter_activities(self, user_data, labeled_users):
         activites_data = []
+        activites_id = 0
         for user_id, _ in user_data:
 
             labeled_times = {}
@@ -138,19 +119,25 @@ class Repo:
                         labeled_times[(start_date_time, end_end_time)] = val
 
             trajectory_path = os.path.join('dataset/Data/', user_id, 'Trajectory')
-            activity_id = None
+            
             start_date_time = None
             end_end_time = None
             transportation_mode = None
 
             for _, _, files in os.walk(trajectory_path):
                 for file in files:
-                    activity_id = int(file.split('.')[0])
+                    file_path = os.path.join(trajectory_path, file)
+
+                    count = 0
+                    with open(file_path, 'r') as f:
+                        count = len(f.readlines()[6:])
+
+                    if count > 2500:
+                        continue
 
                     date_time_obj = datetime.strptime(file.split('.')[0], '%Y%m%d%H%M%S')
                     start_date_time = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
 
-                    file_path = os.path.join(trajectory_path, file)
                     with open(file_path, 'r') as f:
                         lines = f.readlines()[-1].split(',')
                         date_part = lines[-2].strip()  
@@ -159,15 +146,16 @@ class Repo:
             
                     if (start_date_time, end_end_time) in labeled_times:
                         transportation_mode = labeled_times[(start_date_time, end_end_time)]
-                    
-                    activites_data.append((activity_id, user_id, transportation_mode, start_date_time, end_end_time))
+
+                    activites_id += 1
+                    activites_data.append((file, user_id, activites_id, transportation_mode, start_date_time, end_end_time))
         
         return activites_data
     
     def iter_track_points(self, activites_data):
         track_point_data = []
-        for activity_id, user_id, _, _, _ in activites_data:
-            plt_path = os.path.join('dataset/Data/', user_id, 'Trajectory', str(activity_id) + ".plt")
+        for file, user_id, activites_id, _, _, _ in activites_data:
+            plt_path = os.path.join('dataset/Data/', user_id, 'Trajectory', str(file))
             
             lat = None
             lon = None
@@ -189,23 +177,25 @@ class Repo:
                     time = data[6]
                     date_time = f"{date} {time}"  
 
-
-                    track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
+                    track_point_data.append((activites_id, lat, lon, altitude, date_days, date_time))
         
         return track_point_data
 
-    def iter_data(self, limit=1):
-        labeled_users = read_labeled_ids('dataset/labeled_ids.txt')
+    def iter_data(self, limit=200):
+        labeled_users = self.read_labeled_ids('dataset/labeled_ids.txt')
         
         user_data = self.iter_users(limit, labeled_users)
-        activites_data = self.iter_activities(user_data, labeled_users)
-        track_point_data = self.iter_track_points(activites_data)
+        activity_data = self.iter_activities(user_data, labeled_users)
+        track_point_data = self.iter_track_points(activity_data)
         
-        print(len(user_data))
-        print(len(activites_data))
-        print(len(track_point_data))
+        print(f"Count of users: {len(user_data)}")
+        print(f"Count of activities: {len(activity_data)}")
+        print(f"Count of track points: {len(track_point_data)}")
 
-        #self.insert_dataset(user_data, activites_data, track_point_data)
+        # Remove data that is not for insert
+        activity_insert = [(activity_id, user_id, transportation_mode, start_date_time, end_date_time) 
+                            for _, user_id, activity_id, transportation_mode, start_date_time, end_date_time in activity_data]
+        self.insert_dataset(user_data, activity_insert, track_point_data)
     
 
     def insert_dataset(self, user_data, activites_data, track_point_data):
@@ -222,7 +212,7 @@ def main():
         repo.setup_schema()
         repo.iter_data()
     except Exception as e:
-        print("ERROR: Failed to use database:", e)
+        print("ERROR:", e)
     finally:
         if repo:
             repo.connection.close_connection()
