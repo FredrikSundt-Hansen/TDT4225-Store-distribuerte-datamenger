@@ -1,29 +1,20 @@
 import mysql.connector as mysql
+from decouple import config
 
+class DatabaseError(Exception):
+    """Custom exception for database-related errors"""
+    pass
 
 class DbConnector:
-    """
-    Connects to the MySQL server on the Ubuntu virtual machine.
-    Connector needs HOST, DATABASE, USER and PASSWORD to connect,
-    while PORT is optional and should be 3306.
-
-    Example:
-    HOST = "tdt4225-00.idi.ntnu.no" // Your server IP address/domain name
-    DATABASE = "testdb" // Database name, if you just want to connect to MySQL server, leave it empty
-    USER = "testuser" // This is the user you created and added privileges for
-    PASSWORD = "test123" // The password you set for said user
-    """
-
     def __init__(self,
-                 HOST="tdt4225-xx.idi.ntnu.no",
-                 DATABASE="DATABASE_NAME",
-                 USER="TEST_USER",
-                 PASSWORD="test123"):
-        # Connect to the database
+                 HOST=config('MYSQL_HOST'),
+                 DATABASE_NAME=config('MYSQL_DATABASE'),
+                 USER=config('MYSQL_USER'),
+                 PASSWORD=config('MYSQL_PASSWORD')):
         try:
-            self.db_connection = mysql.connect(host=HOST, database=DATABASE, user=USER, password=PASSWORD, port=3306)
+            self.db_connection = mysql.connect(host=HOST, database=DATABASE_NAME, user=USER, password=PASSWORD, port=3306)
         except Exception as e:
-            print("ERROR: Failed to connect to db:", e)
+            raise DatabaseError(f"ERROR: Failed to connect to db: {e}") from e
 
         # Get the db cursor
         self.cursor = self.db_connection.cursor()
