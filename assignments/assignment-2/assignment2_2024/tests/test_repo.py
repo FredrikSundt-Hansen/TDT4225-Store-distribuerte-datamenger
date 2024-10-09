@@ -1,6 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
-from repo import Repo 
+from geolife_repo import GeolifeRop as Repo
 from config import *
 import os
 
@@ -8,7 +7,7 @@ def cout_files_lines(limit):
     total_count = 0 
     total_lines = 0  
 
-    for root, _, files in os.walk(DATASET_PATH):
+    for root, _, files in os.walk(DATASET_PATH + "/135"):
         for file in files:
             if file.endswith('.plt'):
                 file_path = os.path.join(root, file)
@@ -23,12 +22,10 @@ def cout_files_lines(limit):
 class TestRepo(unittest.TestCase):
 
     def setUp(self):
-        self.repo = Repo()
-        self.repo.setup_schema()
+        pass
 
     def tearDown(self):
-        self.repo.delete_from_user_table()
-        self.repo.connection.close_connection()
+        pass
 
 
 
@@ -36,10 +33,6 @@ class TestRepo(unittest.TestCase):
         a, b = cout_files_lines(2500)
         print(a)
         print(b)
-        #self.repo.process_dataset(limit=200)
-
-
-
     
 if __name__ == '__main__':
     unittest.main()
