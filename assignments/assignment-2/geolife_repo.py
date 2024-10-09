@@ -2,7 +2,7 @@ from DbConnector import DbConnector
 from tabulate import tabulate
 from config import *
 
-class GeolifeRop:
+class GeolifeRepo:
     def __enter__(self):
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection

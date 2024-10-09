@@ -1,4 +1,4 @@
-from geolife_repo import GeolifeRop as Repo
+from geolife_repo import GeolifeRepo as Repo
 from geolife_service import GeolifeService as Svc
 from config import ORIGINAL_TRACK_POINT_SIZE
 
