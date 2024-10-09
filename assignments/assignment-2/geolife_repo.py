@@ -12,6 +12,10 @@ class GeolifeRepo:
     def __exit__(self, exc_type, exc_value, traceback):
         self.connection.close_connection()
 
+    def exec_query(self, query: str):
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
     def show_tables(self):
         self.cursor.execute("SHOW TABLES")
         rows = self.cursor.fetchall()
@@ -35,7 +39,6 @@ class GeolifeRepo:
     def clean_db(self):
         query = f"DELETE FROM {USER_TABLE_NAME}"
         self.cursor.execute(query)
-        self.db_connection.commit()
 
     def setup_schema(self):
         self.create_user_table()

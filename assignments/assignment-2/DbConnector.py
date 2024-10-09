@@ -27,4 +27,5 @@ class DbConnector:
     def close_connection(self):
         self.cursor.close()
         self.db_connection.close()
+        print(f"Database connection closed")
         print("\n-----------------------------------------------")

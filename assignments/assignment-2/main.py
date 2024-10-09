@@ -1,9 +1,9 @@
-from geolife_repo import GeolifeRepo as Repo
-from geolife_service import GeolifeService as Svc
+from geolife_repo import GeolifeRepo
+from geolife_service import GeolifeService 
 from config import ORIGINAL_TRACK_POINT_SIZE
 
 def main():
-    svc = Svc()
+    svc = GeolifeService()
     user_data, activity_data, track_point_data = svc.process_dataset(limit=200)
 
     print(f"Count of users: {len(user_data):,}")
@@ -12,7 +12,7 @@ def main():
     print(f"Cleaned: {ORIGINAL_TRACK_POINT_SIZE - len(track_point_data):,} trackpoints\n")
 
     try:
-        with Repo() as repo:
+        with GeolifeRepo() as repo:
             repo.setup_schema()
             print("Schema setup complete")
             repo.insert_dataset(user_data, activity_data, track_point_data)
