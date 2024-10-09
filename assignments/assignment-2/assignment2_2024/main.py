@@ -17,8 +17,6 @@ def main():
             print("Schema setup complete")
             repo.insert_dataset(user_data, activity_data, track_point_data)
             print("Dataset inserted")
-            #repo.clean_db()
-            #print("Cleaned db")
     except Exception as e:
         print(f"ERROR: {e}")
 

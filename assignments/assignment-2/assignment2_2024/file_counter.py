@@ -20,5 +20,5 @@ def count_files_lines(dir, limit):
 
 total_count, total_lines = count_files_lines(DATASET_PATH, MAX_TRACK_POINTS)
 
-print(f"Total count of files: {total_count}")
-print(f"Total count of lines: {total_lines}")
+print(f"Total count of files: {total_count:,}")
+print(f"Total count of lines: {total_lines:,}")
