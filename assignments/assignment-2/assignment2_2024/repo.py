@@ -3,12 +3,18 @@ from tabulate import tabulate
 import os
 from datetime import datetime
 from config import *
+import traceback
 
 class Repo:
-    def __init__(self):
+    def __enter__(self):
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
         self.cursor = self.connection.cursor
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cursor.close()
+        self.db_connection.close()
 
     def show_tables(self):
         self.cursor.execute("SHOW TABLES")
@@ -19,7 +25,6 @@ class Repo:
         with open(path, 'r') as file:
             return [line.strip() for line in file if line.strip()]
     
-
     def create_user_table(self):
         query = f"CREATE TABLE IF NOT EXISTS {USER_TABLE_NAME} ({USER_TABLE_SCHEMA})"
         self.cursor.execute(query)
@@ -64,18 +69,15 @@ class Repo:
             self.cursor.executemany(query, batch_data)  
             self.db_connection.commit()  
     
-    def process_labeled_timestamp(self, labeled_timestamp, lines: list[str]):
-        for line in lines:
-            labels_line = line.strip().split('\t')
+    def process_labeled_timestamp(self, labeled_timestamp, line: str):
+        start_date_time = line[0].replace('/', '-')
+        end_end_time = line[1].replace('/', '-')
             
-            start_date_time = labels_line[0].replace('/', '-')
-            end_end_time = labels_line[1].replace('/', '-')
-            
-            val = labels_line[-1]
+        val = line[-1]
 
-            labeled_timestamp[(start_date_time, end_end_time)] = val
+        labeled_timestamp[(start_date_time, end_end_time)] = val
         
-    def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, labeled_timestamp: dict, file_name, last_line: list[str]):
+    def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, labeled_timestamp: dict, file_name: str, last_line: str):
         date_time_obj = datetime.strptime(file_name.split('.')[0], '%Y%m%d%H%M%S')
         start_date_time = date_time_obj.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -89,18 +91,16 @@ class Repo:
 
         activity_data.append((activity_id, user_id, transportation_mode, start_date_time, end_date_time))
     
-    def process_track_point_data(self, track_point_data: list, activity_id: int, lines: list[str]):
-        for line in lines: 
-            data = line.split(',')
-            lat = data[0]
-            lon = data[1]
-            altitude = data[3]
-            date_days = data[4]
-            date = data[5]
-            time = data[6]
-            date_time = f"{date} {time}" 
+    def process_track_point_data(self, track_point_data: list, activity_id: int, line: list[str]):
+        lat = line[0]
+        lon = line[1]
+        altitude = line[3]
+        date_days = line[4]
+        date = line[5]
+        time = line[6]
+        date_time = f"{date} {time}" 
 
-            track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
+        track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
     
     def iter_dataset(self, limit):
         user_data = []
@@ -109,44 +109,42 @@ class Repo:
 
         labeled_users = self.read_labeled_ids(LABELED_ID_PATH)
         
-        i = 0
         activity_id = 0
+        i = 0
         for root, _, _ in os.walk(DATASET_PATH, topdown=True):
             user_id = root.split('/')[-1]
-
             if not user_id.isdigit():
                 continue
 
-            if user_id in labeled_users:
-                user_data.append((user_id, True))
-            else:
-                user_data.append((user_id, False))
+            user_data.append((user_id, user_id in labeled_users))
 
             labeled_timestamp = {}
             if user_id in labeled_users:
                 with open(os.path.join(DATASET_PATH, user_id, USER_LABEL_FILE)) as f:
                     lines = f.readlines()[LABELED_ID_FILE_HEADER_SIZE:]
-                    self.process_labeled_timestamp(labeled_timestamp, lines)
-            
-            data_files_path = os.path.join(DATASET_PATH, user_id, DATA_FILES_DIR)
+                    for line in lines:
+                        line = line.strip().split('\t')
+                        self.process_labeled_timestamp(labeled_timestamp, line)
 
-            for _, _, files in os.walk(data_files_path):
+            for _, _, files in os.walk(os.path.join(DATASET_PATH, user_id, DATA_FILES_DIR)):
                 for file in files:
-                    file_path = os.path.join(data_files_path, file)
-
+                    file_path = os.path.join(DATASET_PATH, user_id, DATA_FILES_DIR, file)
                     with open(file_path, 'r') as f:
                         lines = f.readlines()[USER_DATA_HEADER_SIZE:]
-
                         if len(lines) > MAX_TRACK_POINTS:
                             continue
                         
-                        last_line = lines[-1].split(',')
                         activity_id += 1
+                        last_line = lines[-1].split(',')
                         self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, file, last_line)
-                        
-                        self.process_track_point_data(track_point_data, activity_id, lines)
 
-            # Limit to reduce amount of data            
+                        for line in lines:
+                            line = line.split(',')
+                            if float(line[3]) == -777.0:
+                                continue
+                            
+                            self.process_track_point_data(track_point_data, activity_id, line)
+        
             i += 1
             if i >= limit:
                 break
@@ -156,25 +154,28 @@ class Repo:
     def process_dataset(self, limit=200):
         user_data, activity_data, track_point_data = self.iter_dataset(limit)
         
-        print(f"Count of users: {len(user_data)}")
-        print(f"Count of activities: {len(activity_data)}")
-        print(f"Count of track points: {len(track_point_data)}")
+        print(f"Count of users: {len(user_data):,}")
+        print(f"Count of activities: {len(activity_data):,}")
+        print(f"Count of track points: {len(track_point_data):,}")
+        print(f"Cleaned: {ORIGINAL_TRACK_POINT_SIZE - len(track_point_data):,} trackpoints")
 
+        self.insert_dataset(user_data, activity_data, track_point_data)
+
+    def insert_dataset(self, user_data, activity_data, track_point_data):
         self.bulk_insert_users(user_data)
         self.bulk_insert_activty(activity_data)
         self.bulk_insert_track_point(track_point_data)
         
-  
-
 
 def main():
     repo = None
     try:
-        repo = Repo()
-        repo.setup_schema()
-        repo.process_dataset()
+        with Repo() as repo:
+            repo.setup_schema()
+            repo.process_dataset()
     except Exception as e:
-        print("ERROR:", e)
+        print(f"ERROR: {e}")
+        traceback.print_exc() 
     finally:
         if repo:
             repo.connection.close_connection()

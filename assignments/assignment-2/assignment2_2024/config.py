@@ -29,6 +29,8 @@ TRACK_POINT_TABLE_SCHEMA = """
 # Leave out 'id' since it's auto-incremented
 TRACK_POINT_TABLE_INSERT = "activity_id, lat, lon, altitude, date_days, date_time"
 
+ORIGINAL_TRACK_POINT_SIZE = 24427363
+
 DATASET_PATH = "dataset/Data/"
 LABELED_ID_PATH = "dataset/labeled_ids.txt"
 USER_LABEL_FILE = "labels.txt"
