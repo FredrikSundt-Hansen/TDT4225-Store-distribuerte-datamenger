@@ -19,8 +19,8 @@ TRACK_POINT_TABLE_SCHEMA = """
     id INT AUTO_INCREMENT NOT NULL,
     activity_id BIGINT NOT NULL,
     lat DOUBLE(9, 6) NOT NULL,
-    lon DOUBLE(9, 6) NULL,
-    altitude INT NOT NULL,
+    lon DOUBLE(9, 6) NOT NULL,
+    altitude INT NULL,
     date_days DOUBLE(15, 10) NOT NULL,
     date_time DATETIME(0) NOT NULL,
     PRIMARY KEY (id),
@@ -35,8 +35,8 @@ DATASET_PATH = "dataset/Data/"
 LABELED_ID_PATH = "dataset/labeled_ids.txt"
 USER_LABEL_FILE = "labels.txt"
 DATA_FILES_DIR = "Trajectory"
+
 LABELED_ID_FILE_HEADER_SIZE = 1
 USER_DATA_HEADER_SIZE = 6
 
 MAX_TRACK_POINTS = 2500
-ALTITUDE_INDEX = 3

@@ -1,28 +1,16 @@
 import os
 from config import *
 
-from typing import NamedTuple
-
-class TrackPoint(NamedTuple):
-    activity_id: int
-    lat: float
-    lon: float
-    altitude: float
-    date_days: float
-    date_time: str
-
 class GeolifeService:
-    def __init__(self) -> None:
-        pass
-
+    
     def is_valid_user_id(self, user_id: str) -> bool:
         return user_id.isdigit()
 
-    def has_too_many_track_points(self, lines: list) -> bool:
-        return len(lines) > MAX_TRACK_POINTS
+    def has_too_many_track_points(self, count: int) -> bool:
+        return count > MAX_TRACK_POINTS
 
-    def is_invalid_altitude(self, track_point_line: list) -> bool:
-        return float(track_point_line[ALTITUDE_INDEX]) == -777.0
+    def is_valid_altitude(self, altitude) -> bool:
+        return float(altitude) != -777.0
 
     def read_labeled_ids(self, path: str) -> list:
         with open(path, 'r') as file:
@@ -38,38 +26,28 @@ class GeolifeService:
                 labeled_timestamp[(start_date_time, end_end_time)] = val
         
 
-    def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, labeled_timestamp: dict, file_name: str, last_line: str) -> None:
+    def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, 
+                              labeled_timestamp: dict, file_name: str, last_line: str) -> None:
         file_name = file_name.split('.')[0]
-        start_date_time = file_name[0:4] + "-" + file_name[4:6] + "-" + file_name[6:8] + " " + file_name[8:10] + ":" + file_name[10:12] + ":" + file_name[12:14]
+        start_date_time = file_name[0:4] + "-" + file_name[4:6] + "-" + file_name[6:8] 
+        start_date_time += " " + file_name[8:10] + ":" + file_name[10:12] + ":" + file_name[12:14]
 
         last_line = last_line.strip().split(',')
-
         date, time = last_line[-2], last_line[-1]
         end_date_time = f"{date} {time}"
 
         transportation_mode = labeled_timestamp.get((start_date_time, end_date_time), None)
         activity_data.append((activity_id, user_id, transportation_mode, start_date_time, end_date_time))
 
-    def process_track_point_data(self, track_point_data: list, activity_id: int, line: list) -> None:
-        lat, lon, _, altitude, date_days, date, time = line
-        date_time = f"{date} {time}"
-        track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
+    def process_track_point_data(self, track_point_data: list, activity_id: int, lines: list[str]) -> None:
+        for line in lines:
+            lat, lon, _, altitude, date_days, date, time = line.split(',')
+            date_time = f"{date} {time}"
 
-    def process_user_activity(self, file_path: str, file_name, user_id: str, activity_id: int, labeled_timestamp: dict, activity_data: list, track_point_data: list) -> None:
-        with open(file_path, 'r') as f:
-            lines = f.readlines()[USER_DATA_HEADER_SIZE:]
-            if self.has_too_many_track_points(lines):
-                return
+            if not self.is_valid_altitude(altitude):
+                altitude = None
 
-            self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, file_name, lines[-1])
-            for line in lines:
-                line = line.split(',')
-                if self.is_invalid_altitude(line):
-                    return
-                
-                self.process_track_point_data(track_point_data, activity_id, line)
-
-        return activity_id
+            track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
         
     def process_dataset(self, limit: int) -> tuple:
         user_data, activity_data, track_point_data = [], [], []
@@ -90,8 +68,14 @@ class GeolifeService:
             data_files_path = os.path.join(root, DATA_FILES_DIR)
             for _, _, files in os.walk(data_files_path):
                 for file in files:
-                    activity_id += 1
-                    self.process_user_activity(os.path.join(data_files_path, file), file, user_id, activity_id, labeled_timestamp, activity_data, track_point_data)
+                    with open(os.path.join(data_files_path, file), 'r') as f:
+                        lines = f.readlines()[USER_DATA_HEADER_SIZE:]
+                        if self.has_too_many_track_points(len(lines)):
+                            continue
+
+                        activity_id += 1
+                        self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, file, lines[-1])
+                        self.process_track_point_data(track_point_data, activity_id, lines)
 
             i += 1
             if i >= limit:
