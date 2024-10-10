@@ -40,3 +40,11 @@ LABELED_ID_FILE_HEADER_SIZE = 1
 USER_DATA_HEADER_SIZE = 6
 
 MAX_TRACK_POINTS = 2500
+
+"""
+Below are values already now from task description
+or counting functions, see file_counter.py
+"""
+N_USERS = 182
+N_ACTIVITES = 16048
+N_TRACK_POINTS = 9681756
