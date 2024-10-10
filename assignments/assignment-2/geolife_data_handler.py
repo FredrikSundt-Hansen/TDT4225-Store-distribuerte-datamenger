@@ -1,7 +1,7 @@
 import os
-from config import *
+from const import *
 
-class GeolifeService:
+class GeolifeDataHandler:
     
     def is_valid_user_id(self, user_id: str) -> bool:
         return user_id.isdigit()
@@ -27,10 +27,10 @@ class GeolifeService:
         
 
     def process_activity_data(self, activity_data: list, activity_id: int, user_id: str, 
-                              labeled_timestamp: dict, file_name: str, last_line: str) -> None:
-        file_name = file_name.split('.')[0]
-        start_date_time = file_name[0:4] + "-" + file_name[4:6] + "-" + file_name[6:8] 
-        start_date_time += " " + file_name[8:10] + ":" + file_name[10:12] + ":" + file_name[12:14]
+                              labeled_timestamp: dict, first_line: str, last_line: str) -> None:
+        first_line = first_line.strip().split(',')
+        date, time = first_line[-2], first_line[-1]
+        start_date_time = f"{date} {time}"
 
         last_line = last_line.strip().split(',')
         date, time = last_line[-2], last_line[-1]
@@ -49,7 +49,7 @@ class GeolifeService:
 
             track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
         
-    def process_dataset(self, limit: int) -> tuple:
+    def process_dataset(self, user_limit: int) -> tuple:
         user_data, activity_data, track_point_data = [], [], []
         labeled_users = self.read_labeled_ids(LABELED_ID_PATH)
 
@@ -74,11 +74,13 @@ class GeolifeService:
                             continue
 
                         activity_id += 1
-                        self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, file, lines[-1])
+                        first_line = lines[0]
+                        last_line = lines[-1]
+                        self.process_activity_data(activity_data, activity_id, user_id, labeled_timestamp, first_line, last_line)
                         self.process_track_point_data(track_point_data, activity_id, lines)
 
             i += 1
-            if i >= limit:
+            if i >= user_limit:
                 break
         
         return user_data, activity_data, track_point_data

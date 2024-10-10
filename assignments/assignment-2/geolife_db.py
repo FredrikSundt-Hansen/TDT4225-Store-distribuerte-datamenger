@@ -1,8 +1,8 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
-from config import *
+from const import *
 
-class GeolifeRepo:
+class GeolifeDB:
     def __enter__(self):
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
@@ -55,9 +55,17 @@ class GeolifeRepo:
         self.cursor.executemany(query, data)
         self.db_connection.commit()
 
-    # One row is 48 bytes, MYSQL default max packet size = 16 MB
-    # 16 MB / 48 bytes = 349525, thus 349525 / 7 batch size
-    def bulk_insert_track_point(self, data: list, batch_size: int = int(349525 / 7)):
+    """
+    One row track_point table = 
+    id             activity-id    lat               lon               altitude       date_days         date_time
+    INT(4 bytes) + INT(4 bytes) + DOUBLE(8 bytes) + DOUBLE(8 bytes) + INT(4 bytes) + DOUBLE(8 bytes) + DATETIME(8 bytes)
+    = 44 bytes
+    
+    Default max packet size in MySQL = 16 MB
+
+    Batch size = 16 MB / 44 B = 381300
+    """
+    def bulk_insert_track_point(self, data: list, batch_size: int = int(381300)):
         query = f"INSERT IGNORE INTO {TRACK_POINT_TABLE_NAME} ({TRACK_POINT_TABLE_INSERT}) VALUES (%s, %s, %s, %s, %s, %s)"
         for i in range(0, len(data), batch_size):
             batch_data = data[i:i + batch_size]  

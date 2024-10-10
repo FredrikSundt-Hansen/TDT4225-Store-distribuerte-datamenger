@@ -1,4 +1,4 @@
-from config import *
+from const import *
 import os
 
 def count_files_lines(dir, limit):
