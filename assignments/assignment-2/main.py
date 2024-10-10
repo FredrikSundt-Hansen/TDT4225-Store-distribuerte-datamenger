@@ -1,10 +1,10 @@
 from geolife_db import GeolifeDB
-from geolife_data_handler import GeolifeDataHandler 
+from geolife_data_handler import process_dataset
 from const import ORIGINAL_TRACK_POINT_SIZE, N_USERS, N_ACTIVITES, N_TRACK_POINTS
 
 def main():
-    data_handler = GeolifeDataHandler()
-    user_data, activity_data, track_point_data = data_handler.process_dataset(user_limit=200)
+
+    user_data, activity_data, track_point_data = process_dataset(user_limit=200)
 
     users = len(user_data)
     activities = len(activity_data)
