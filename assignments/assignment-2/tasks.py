@@ -2,35 +2,22 @@ import unittest
 from geolife_db import GeolifeDB
 from haversine import haversine, Unit
 from const import N_USERS, N_ACTIVITES, N_TRACK_POINTS
-from geolife_data_handler import process_dataset
 
 """
 Assignment 2 tasks
+
+NB! Database needs to be populated from main.py before running tests. 
 """
 class Assignment2Tasks(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
-        user_data, activity_data, track_point_data = process_dataset(user_limit=200)
-
-        users = len(user_data)
-        activities = len(activity_data)
-        track_points = len(track_point_data)
-
-        assert users == N_USERS
-        assert activities == N_ACTIVITES
-        assert track_points == N_TRACK_POINTS
-
         cls.db = GeolifeDB()  
         cls.db.__enter__()
-
         cls.db.show_tables()
-        cls.db.setup_schema()
-        cls.db.insert_dataset(user_data, activity_data, track_point_data)
 
     @classmethod
     def tearDownClass(cls):
-        cls.db.drop_tables()
         cls.db.__exit__(None, None, None) 
 
     """

@@ -37,7 +37,7 @@ class GeolifeDB:
         self.db_connection.commit()
 
     def drop_tables(self):
-        query = f"DROP TABLE IF EXISTS {USER_TABLE_NAME}, {ACTIVITY_TABLE_NAME}, {TRACK_POINT_TABLE_NAME}"
+        query = f"DROP TABLE IF EXISTS {TRACK_POINT_TABLE_NAME}, {ACTIVITY_TABLE_NAME}, {USER_TABLE_NAME}"
         self.cursor.execute(query)
         self.db_connection.commit()
 
@@ -47,12 +47,12 @@ class GeolifeDB:
         self.create_track_point_table()
 
     def bulk_insert_users(self, data: list):
-        query = f"INSERT IGNORE INTO {USER_TABLE_NAME} ({USER_TABLE_INSERT}) VALUES (%s, %s)"
+        query = f"INSERT INTO {USER_TABLE_NAME} ({USER_TABLE_INSERT}) VALUES (%s, %s)"
         self.cursor.executemany(query, data)
         self.db_connection.commit()
 
-    def bulk_insert_activty(self, data: list):
-        query = f"INSERT IGNORE INTO {ACTIVITY_TABLE_NAME} ({ACTIVITY_TABLE_INSERT}) VALUES (%s, %s, %s, %s, %s)"
+    def bulk_insert_activity(self, data: list):
+        query = f"INSERT INTO {ACTIVITY_TABLE_NAME} ({ACTIVITY_TABLE_INSERT}) VALUES (%s, %s, %s, %s, %s)"
         self.cursor.executemany(query, data)
         self.db_connection.commit()
 
@@ -67,7 +67,7 @@ class GeolifeDB:
     Batch size = 16 MB / 44 B = 381300
     """
     def bulk_insert_track_point(self, data: list, batch_size: int = int(381300)):
-        query = f"INSERT IGNORE INTO {TRACK_POINT_TABLE_NAME} ({TRACK_POINT_TABLE_INSERT}) VALUES (%s, %s, %s, %s, %s, %s)"
+        query = f"INSERT INTO {TRACK_POINT_TABLE_NAME} ({TRACK_POINT_TABLE_INSERT}) VALUES (%s, %s, %s, %s, %s, %s)"
         for i in range(0, len(data), batch_size):
             batch_data = data[i:i + batch_size]  
             self.cursor.executemany(query, batch_data)  
@@ -75,5 +75,5 @@ class GeolifeDB:
 
     def insert_dataset(self, user_data, activity_data, track_point_data):
         self.bulk_insert_users(user_data)
-        self.bulk_insert_activty(activity_data)
+        self.bulk_insert_activity(activity_data)
         self.bulk_insert_track_point(track_point_data)
