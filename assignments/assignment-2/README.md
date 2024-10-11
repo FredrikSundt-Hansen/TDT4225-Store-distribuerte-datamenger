@@ -1,5 +1,5 @@
 # Assignment 2 Code
-This repository contains the code for Assignment 2, which processes and inserts the Geolife 
+Contains code for Assignment 2, which processes and inserts the Geolife 
 dataset into a MySQL database. The code includes code to handle the dataset, run 
 database operations, and execute the assignment tasks as unit tests. 
 
@@ -40,7 +40,7 @@ MYSQL_USER=assignment2
 MYSQL_PASSWORD=assignment2password
 ```
 
-2**Set up a virtual environment and database**: 
+2. **Set up a virtual environment and database**: 
  ```bash
 python3 -m venv venv
 source venv/bin/activate
@@ -49,7 +49,7 @@ docker compose up -d
  ```
 
 ### Running the code
-One can run the main file to process the dataset and insert it into the database, or run the tasks file to execute 
+One can run the main file to process the dataset and insert it into the database, then run the tasks file to execute 
 the assignment tasks.
 
 Main file:
