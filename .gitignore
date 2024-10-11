@@ -13,7 +13,7 @@ mandel_c
 
 .cache/
 
-env/
+venv/
 
 assignments/assignment-2/dataset
 

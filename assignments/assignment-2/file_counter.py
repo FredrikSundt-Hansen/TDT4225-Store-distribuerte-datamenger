@@ -1,6 +1,9 @@
 from const import *
 import os
 
+"""
+Function for counting the number of files and lines in the dataset
+"""
 def count_files_lines(dir, limit):
     total_count = 0 
     total_lines = 0  

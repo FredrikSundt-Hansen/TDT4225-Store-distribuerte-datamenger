@@ -17,7 +17,13 @@ def read_labeled_ids(path: str) -> list:
 def is_valid_altitude(altitude) -> bool:
     return float(altitude) != -777.0
 
+"""
+Function to process the labeled timestamps and append them to the labeled_timestamp dictionary
 
+:parameter
+    labeled_timestamp: dict - Dictionary to append the labeled timestamps to
+    file_path: str - The file path to read the labeled timestamps from
+"""
 def process_labeled_timestamp(labeled_timestamp: dict, file_path) -> None:
     with open(file_path) as f:
         for line in f.readlines()[LABELED_ID_FILE_HEADER_SIZE:]:
@@ -27,7 +33,17 @@ def process_labeled_timestamp(labeled_timestamp: dict, file_path) -> None:
             val = line[-1]
             labeled_timestamp[(start_date_time, end_end_time)] = val
 
+"""
+Function to process the activity data and append it to the activity_data list
 
+:parameter
+    activity_data: list - List to append the activity data to
+    activity_id: int - The activity id
+    user_id: str - The user id
+    labeled_timestamp: dict - Dictionary of labeled timestamps
+    first_line: str - The first line of the activity data
+    last_line: str - The last line of the activity data
+"""
 def process_activity_data(activity_data: list, activity_id: int, user_id: str,
                           labeled_timestamp: dict, first_line: str, last_line: str) -> None:
     first_line = first_line.strip().split(',')
@@ -41,7 +57,14 @@ def process_activity_data(activity_data: list, activity_id: int, user_id: str,
     transportation_mode = labeled_timestamp.get((start_date_time, end_date_time), None)
     activity_data.append((activity_id, user_id, transportation_mode, start_date_time, end_date_time))
 
+"""
+Function to process the track point data and append it to the track_point_data list
 
+:parameter
+    track_point_data: list - List to append the track point data to
+    activity_id: int - The activity id
+    lines: list - List of lines to process
+"""
 def process_track_point_data(track_point_data: list, activity_id: int, lines: list[str]) -> None:
     for line in lines:
         lat, lon, _, altitude, date_days, date, time = line.split(',')
@@ -52,7 +75,13 @@ def process_track_point_data(track_point_data: list, activity_id: int, lines: li
 
         track_point_data.append((activity_id, lat, lon, altitude, date_days, date_time))
 
+"""
+Function to process the dataset and return the data in the format:
+(user_data, activity_data, track_point_data)
 
+:parameter
+    user_limit: int - Used under development to limit the number of users to process
+"""
 def process_dataset(user_limit: int) -> tuple:
     user_data, activity_data, track_point_data = [], [], []
     labeled_users = read_labeled_ids(LABELED_ID_PATH)

@@ -20,7 +20,7 @@ class GeolifeDB:
         self.cursor.execute("SHOW TABLES")
         rows = self.cursor.fetchall()
         print(tabulate(rows, headers=self.cursor.column_names))
-    
+
     def create_user_table(self):
         query = f"CREATE TABLE IF NOT EXISTS {USER_TABLE_NAME} ({USER_TABLE_SCHEMA})"
         self.cursor.execute(query)
@@ -31,19 +31,20 @@ class GeolifeDB:
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def create_trackpoint_table(self):
+    def create_track_point_table(self):
         query = f"CREATE TABLE IF NOT EXISTS {TRACK_POINT_TABLE_NAME} ({TRACK_POINT_TABLE_SCHEMA})"
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def clean_db(self):
-        query = f"DELETE FROM {USER_TABLE_NAME}"
+    def drop_tables(self):
+        query = f"DROP TABLE IF EXISTS {USER_TABLE_NAME}, {ACTIVITY_TABLE_NAME}, {TRACK_POINT_TABLE_NAME}"
         self.cursor.execute(query)
+        self.db_connection.commit()
 
     def setup_schema(self):
         self.create_user_table()
         self.create_activity_table()
-        self.create_trackpoint_table()
+        self.create_track_point_table()
 
     def bulk_insert_users(self, data: list):
         query = f"INSERT IGNORE INTO {USER_TABLE_NAME} ({USER_TABLE_INSERT}) VALUES (%s, %s)"

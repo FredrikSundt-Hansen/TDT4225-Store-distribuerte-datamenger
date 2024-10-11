@@ -2,23 +2,35 @@ import unittest
 from geolife_db import GeolifeDB
 from haversine import haversine, Unit
 from const import N_USERS, N_ACTIVITES, N_TRACK_POINTS
+from geolife_data_handler import process_dataset
 
 """
 Assignment 2 tasks
-
-NB! Database needs to be populated before running tests
 """
-
 class Assignment2Tasks(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
+        user_data, activity_data, track_point_data = process_dataset(user_limit=200)
+
+        users = len(user_data)
+        activities = len(activity_data)
+        track_points = len(track_point_data)
+
+        assert users == N_USERS
+        assert activities == N_ACTIVITES
+        assert track_points == N_TRACK_POINTS
+
         cls.db = GeolifeDB()  
-        cls.db.__enter__()  
+        cls.db.__enter__()
+
         cls.db.show_tables()
+        cls.db.setup_schema()
+        cls.db.insert_dataset(user_data, activity_data, track_point_data)
 
     @classmethod
     def tearDownClass(cls):
+        cls.db.drop_tables()
         cls.db.__exit__(None, None, None) 
 
     """
@@ -29,21 +41,24 @@ class Assignment2Tasks(unittest.TestCase):
         query = """
         SELECT COUNT(*) FROM user;
         """
-        count = self.db.exec_query(query)[0]
-        assert count[0] == N_USERS
+        count_users = self.db.exec_query(query)[0]
+        assert count_users[0] == N_USERS
 
         query = """
         SELECT COUNT(*) FROM activity;
         """
-        count = self.db.exec_query(query)[0]  
-        assert count[0] == N_ACTIVITES
+        count_activities = self.db.exec_query(query)[0]
+        assert count_activities[0] == N_ACTIVITES
 
         query = """
         SELECT COUNT(*) FROM track_point;
         """
-        count = self.db.exec_query(query)[0]  
-        assert count[0] == N_TRACK_POINTS
-    
+        count_track_points = self.db.exec_query(query)[0]
+        assert count_track_points[0] == N_TRACK_POINTS
+
+        print(f"\nTask 1, number of users: {count_users}, activities: {count_activities}, track points: {count_track_points}")
+
+
     """
     Find the average number of activities per user.
     """
@@ -58,6 +73,8 @@ class Assignment2Tasks(unittest.TestCase):
         """
         res = self.db.exec_query(query)
         assert len(res) > 0
+
+        print(f"\nTask 2, average number of activities per user: {res}")
 
     """
     Find the top 20 users with the highest number of activities. 
@@ -74,6 +91,22 @@ class Assignment2Tasks(unittest.TestCase):
         res = self.db.exec_query(query)
         assert len(res) == 20
 
+        print(f"\nTask 3, top 20 users with the highest number of activities: {res}")
+
+    """
+    Find all users who have taken a taxi. 
+    """
+    def test_task4(self):
+        query = """
+            SELECT DISTINCT user_id
+            FROM activity
+            WHERE transportation_mode = 'taxi';
+            """
+        res = self.db.exec_query(query)
+        assert len(res) > 0
+
+        print(f"\nTask 4, users who have taken a taxi: {res}")
+
     """
     Find all types of transportation modes and count how many activities that are 
     tagged with these transportation mode labels. Do not count the rows where 
@@ -89,6 +122,41 @@ class Assignment2Tasks(unittest.TestCase):
         res = self.db.exec_query(query)
         assert len(res) > 0
 
+        print(f"\nTask 5, all types of transportation modes and how many per mode: {res}")
+
+    '''
+    Task 6
+    a) Find the year with the most activities.
+    b) Is this also the year with most recorded hours?
+    '''
+    def test_task6a(self):
+        query = """
+            SELECT YEAR(start_date_time) AS year, COUNT(*) AS count
+            FROM activity
+            GROUP BY year
+            ORDER BY count DESC
+            LIMIT 1;
+            """
+        res = self.db.exec_query(query)
+        assert len(res) > 0
+        year_most_activities = res[0][0]
+
+        print(f"\nTask 6a, year with most activities: {year_most_activities}")
+
+    def test_task6b(self):
+
+        query = """
+            SELECT YEAR(start_date_time) AS year, SUM(TIMESTAMPDIFF(HOUR, start_date_time, end_date_time)) AS hours
+            FROM activity
+            GROUP BY year
+            ORDER BY hours DESC
+            LIMIT 1;
+            """
+        res = self.db.exec_query(query)
+        assert len(res) > 0
+        year_most_hours = res[0][0]
+
+        print(f"\nTask 6b, year with most recorded hours: {year_most_hours}")
 
     """
     Find the total distance (in km) walked in 2008, by user with id=112
@@ -97,7 +165,7 @@ class Assignment2Tasks(unittest.TestCase):
         query = """
         SELECT lat, lon 
         FROM track_point 
-        JOIN activity ON track_point.activity_id = activity.id 
+        LEFT JOIN activity a ON track_point.activity_id = a.id
         WHERE user_id = '112' 
         AND transportation_mode = 'walk' 
         AND YEAR(start_date_time) = 2008 
@@ -121,11 +189,33 @@ class Assignment2Tasks(unittest.TestCase):
         print(f"\nTask 7, total distance walked by user 112 in 2008: {total_dist:.3f} km")
 
     """
-    Find the top 20 users who have gained the most altitude meters. 
-    Output should be a table with (id, total meters gained per user). Remember that some altitude-values are invalid.
-    """
+        Find the top 20 users who have gained the most altitude meters.
+        Output should be a table with (id, total meters gained per user).
+        Remember that some altitude-values are invalid
+        """
+
     def test_task8(self):
-        pass
+        query = """
+        WITH altitude_differences AS (
+            SELECT a.user_id,
+                   (tp_next.altitude - tp_current.altitude) AS altitude_gain
+            FROM track_point tp_current
+            JOIN track_point tp_next
+                ON tp_current.activity_id = tp_next.activity_id
+                AND tp_next.id = tp_current.id + 1
+            JOIN activity a ON tp_current.activity_id = a.id
+            WHERE tp_next.altitude > tp_current.altitude
+        )
+        SELECT user_id, SUM(altitude_gain) AS total_altitude_gain
+        FROM altitude_differences
+        GROUP BY user_id
+        ORDER BY total_altitude_gain DESC
+        LIMIT 20;
+        """
+        res = self.db.exec_query(query)
+        assert len(res) > 0
+
+        print(f"\nTask 8, top 20 users who have gained the most altitude meters: {res}")
     
     """
     Find all users who have invalid activities, and the number of invalid activities per user 
@@ -141,14 +231,16 @@ class Assignment2Tasks(unittest.TestCase):
             AND tp_next.id = tp_current.id + 1
             WHERE TIMESTAMPDIFF(Minute, tp_current.date_time, tp_next.date_time) >= 5
         )
-        
         SELECT a.user_id, COUNT(DISTINCT a.id) AS count_invalid_activities
         FROM activity a
         JOIN consecutive_track_point cpt ON a.id = cpt.activity_id
         GROUP BY a.user_id;
         """
         res = self.db.exec_query(query)
+
         assert len(res) > 0 and len(res[0]) == 2
+
+
 
     """
     Find the users who have tracked an activity in the Forbidden City of Beijing. 
@@ -217,6 +309,8 @@ class Assignment2Tasks(unittest.TestCase):
         """
         res = self.db.exec_query(query)
         assert len(res) > 0 and len(res[0]) == 2
+
+        print(f"\nTask 11, users who have registered transportation_mode and their most used transportation_mode: {res}")
 
 
 if __name__ == '__main__':
