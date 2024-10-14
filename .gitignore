@@ -15,7 +15,7 @@ mandel_c
 
 venv/
 
-assignments/assignment-2/dataset
+dataset/
 
 *.zip
 
