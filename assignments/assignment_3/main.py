@@ -9,9 +9,17 @@ class GeolifeDB:
         self.client = self.connection.client
         self.db = self.connection.db
 
-    def create_coll(self, collection_name):
-        collection = self.db.create_collection(collection_name)    
-        print('Created collection: ', collection)
+    def create_collections(self,):
+        # Create collections if not already existing
+        if "User" not in self.db.list_collection_names():
+            self.db.create_collection("User")
+            print("Created collection: User")
+        if "Activity" not in self.db.list_collection_names():
+            self.db.create_collection("Activity")
+            print("Created collection: Activity")
+        if "Trackpoint" not in self.db.list_collection_names():
+            self.db.create_collection("Trackpoint")
+            print("Created collection: Trackpoint")
 
     def insert_documents(self, collection_name):
         docs = [
@@ -62,18 +70,14 @@ def main():
     geolifeDB = None
     try:
         geolifeDB = GeolifeDB()
-        geolifeDB.create_coll(collection_name="User")
-        geolifeDB.create_coll(collection_name="Activity")
-        geolifeDB.create_coll(collection_name="TrackPoint")
+        geolifeDB.create_collections()
 
-        geolifeDB.show_coll()
+        #geolifeDB.show_coll()
         #geolifeDB.insert_documents(collection_name="Person")
         #geolifeDB.fetch_documents(collection_name="Person")
-        #geolifeDB.drop_coll(collection_name="Person")
-        #geolifeDB.drop_coll(collection_name='Person')
-        #geolifeDB.drop_coll(collection_name='users')
-        # Check that the table is dropped
-        geolifeDB.show_coll()
+        geolifeDB.drop_coll(collection_name='User')
+        geolifeDB.drop_coll(collection_name='Activity')
+        geolifeDB.drop_coll(collection_name='Trackpoint')
     except Exception as e:
         print("ERROR: Failed to use database:", e)
     finally:
