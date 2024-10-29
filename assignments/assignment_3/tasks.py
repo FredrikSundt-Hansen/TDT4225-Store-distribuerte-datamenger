@@ -13,7 +13,6 @@ class Assignment2Tasks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db = GeolifeDB()  
-        cls.db.__init__()
         cls.db.show_collections()
         #close db
         
