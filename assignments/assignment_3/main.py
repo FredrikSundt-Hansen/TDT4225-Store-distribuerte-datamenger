@@ -21,10 +21,9 @@ def main():
     print(f"Count of track points: {track_points:,}")
     print(f"Cleaned: {ORIGINAL_TRACK_POINT_SIZE - track_points:,} track points\n")
 
-
     try:
         with GeolifeDB() as db:
-            print("Creating collections in the database...\n")
+            print("Creating collections...\n")
             db.create_collections()
             db.show_collections()
 

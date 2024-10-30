@@ -1,6 +1,5 @@
 from DbConnector import DbConnector
 from const import USER_COLLECTION, ACTIVITY_COLLECTION, TRACKPOINT_COLLECTION
-from datetime import datetime
 
 class GeolifeDB:
     def __init__(self):

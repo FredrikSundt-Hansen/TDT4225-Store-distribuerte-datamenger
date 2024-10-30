@@ -1,4 +1,4 @@
-from pymongo import MongoClient, version
+from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +11,6 @@ class DbConnector:
                  USER=os.getenv("DB_USER"),
                  PASSWORD=os.getenv("DB_PASSWORD")):
         uri = "mongodb://%s:%s@%s:27017/%s" % (USER, PASSWORD, HOST, DATABASE)
-        print(f"MongoDB uri: {uri}\n")
 
         # Connect to the databases
         try:
@@ -21,7 +20,7 @@ class DbConnector:
             print("ERROR: Failed to connect to db:", e)
 
         # get database information
-        print("You are connected to the database:", self.db.name)
+        print("Connected to the database:", self.db.name)
         print("-----------------------------------------------\n")
 
     def close_connection(self):
