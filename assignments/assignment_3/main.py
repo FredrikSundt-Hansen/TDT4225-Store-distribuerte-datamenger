@@ -5,6 +5,7 @@ from geolife_db import GeolifeDB
 from const import ORIGINAL_TRACK_POINT_SIZE, N_USERS, N_ACTIVITIES, N_TRACK_POINTS
 
 def main():
+    print("Processing dataset...\n")
     user_data, activity_data, track_point_data = process_dataset(user_limit=200)
 
     users = len(user_data)
@@ -23,6 +24,7 @@ def main():
 
     try:
         with GeolifeDB() as db:
+            print("Creating collections in the database...\n")
             db.create_collections()
             db.show_collections()
 
@@ -32,7 +34,6 @@ def main():
             print("Inserting dataset into the database...\n")
             db.insert_dataset(user_data, activity_data, track_point_data)
             print("Insertion complete.\n")
-
     except Exception as e:
         print("ERROR:", e)
         traceback.print_exc()

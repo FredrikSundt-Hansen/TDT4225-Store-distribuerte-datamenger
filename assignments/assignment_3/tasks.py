@@ -1,7 +1,7 @@
 import unittest
 from main import GeolifeDB
 from haversine import haversine, Unit
-from const import N_USERS, N_ACTIVITIES, N_TRACK_POINTS
+from const import N_USERS, N_ACTIVITIES, N_TRACK_POINTS, USER_COLLECTION, ACTIVITY_COLLECTION, TRACKPOINT_COLLECTION
 
 """
 Assignment 3 tasks
@@ -26,9 +26,9 @@ class Assignment3Tasks(unittest.TestCase):
     inserted into the database).
     """
     def test_task1(self):
-        count_users = self.db.db["User"].count_documents({})
-        count_activities = self.db.db["Activity"].count_documents({})
-        count_track_points = self.db.db["Trackpoint"].count_documents({})
+        count_users = self.db.db[USER_COLLECTION].count_documents({})
+        count_activities = self.db.db[ACTIVITY_COLLECTION].count_documents({})
+        count_track_points = self.db.db[TRACKPOINT_COLLECTION].count_documents({})
 
         self.assertEqual(N_USERS, count_users)
         self.assertEqual(N_ACTIVITIES, count_activities)

@@ -17,3 +17,8 @@ or counting functions, see file_counter.py
 N_USERS = 182
 N_ACTIVITIES = 16048
 N_TRACK_POINTS = 9681756
+
+
+USER_COLLECTION = "User"
+ACTIVITY_COLLECTION = "Activity"
+TRACKPOINT_COLLECTION = "Trackpoint"

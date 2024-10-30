@@ -1,4 +1,6 @@
 from DbConnector import DbConnector
+from const import USER_COLLECTION, ACTIVITY_COLLECTION, TRACKPOINT_COLLECTION
+
 
 class GeolifeDB:
     def __enter__(self):
@@ -12,11 +14,11 @@ class GeolifeDB:
 
     def create_collections(self):
         # Create collections if they don't already exist
-        if "User" not in self.db.list_collection_names():
+        if USER_COLLECTION not in self.db.list_collection_names():
             self.db.create_collection("User")
-        if "Activity" not in self.db.list_collection_names():
+        if ACTIVITY_COLLECTION not in self.db.list_collection_names():
             self.db.create_collection("Activity")
-        if "Trackpoint" not in self.db.list_collection_names():
+        if TRACKPOINT_COLLECTION not in self.db.list_collection_names():
             self.db.create_collection("Trackpoint")
 
     def insert_users(self, user_data):
@@ -33,7 +35,7 @@ class GeolifeDB:
                 "has_labels": has_labels
             }
             user_docs.append(user_doc)
-        self.db["User"].insert_many(user_docs)
+        self.db[USER_COLLECTION].insert_many(user_docs)
 
     def insert_activities(self, activity_data):
         """
@@ -43,51 +45,27 @@ class GeolifeDB:
             activity_data (list): List of dictionaries containing activity details.
         """
         activity_docs = []
-        for activity in activity_data:
+        for activity_id, user_id, transportation_mode, start_date_time, end_date_time in activity_data:
             activity_doc = {
-                "_id": activity["activity_id"],  # Corrected to use dictionary keys
-                "user_id": activity["user_id"],
-                "transportation_mode": activity["transportation_mode"],
-                "start_date_time": activity["start_date_time"],
-                "end_date_time": activity["end_date_time"]
+                "_id": activity_id,
+                "user_id": user_id,
+                "transportation_mode": transportation_mode,
+                "start_date_time": start_date_time,
+                "end_date_time": end_date_time
             }
             activity_docs.append(activity_doc)
-        self.db["Activity"].insert_many(activity_docs)
+        self.db[ACTIVITY_COLLECTION].insert_many(activity_docs)
 
     def insert_trackpoints(self, trackpoint_data):
         """
         Inserts multiple trackpoint documents into the Trackpoint collection in batches.
 
         Parameters:
-            trackpoint_data (list): List of dictionaries containing trackpoint details.
+            trackpoint_data (list): List of tuples containing trackpoint details.
         """
-        batch_size = 10000  # Adjust based on available memory
-        for i in range(0, len(trackpoint_data), batch_size):
-            batch = trackpoint_data[i:i+batch_size]
-            self.db["Trackpoint"].insert_many(batch)
-
-    def insert_dataset(self, user_data, activity_data, track_point_data):
-        # Insert user data
-        self.insert_users(user_data)
-
-        # Convert activity_data tuples to dictionaries
-        activity_data_dicts = []
-        for activity in activity_data:
-            activity_dict = {
-                "activity_id": activity[0],
-                "user_id": activity[1],
-                "transportation_mode": activity[2],
-                "start_date_time": activity[3],
-                "end_date_time": activity[4]
-            }
-            activity_data_dicts.append(activity_dict)
-
-        # Insert activity data
-        self.insert_activities(activity_data_dicts)
-
         # Convert track_point_data tuples to dictionaries
         trackpoint_data_dicts = []
-        for tp in track_point_data:
+        for tp in trackpoint_data:
             tp_dict = {
                 "activity_id": tp[0],
                 "lat": tp[1],
@@ -98,8 +76,20 @@ class GeolifeDB:
             }
             trackpoint_data_dicts.append(tp_dict)
 
+        batch_size = 10000
+        for i in range(0, len(trackpoint_data_dicts), batch_size):
+            batch = trackpoint_data_dicts[i:i + batch_size]
+            self.db[TRACKPOINT_COLLECTION].insert_many(batch)
+
+    def insert_dataset(self, user_data, activity_data, track_point_data):
+        # Insert user data
+        self.insert_users(user_data)
+
+        # Insert activity data
+        self.insert_activities(activity_data)
+
         # Insert trackpoint data
-        self.insert_trackpoints(trackpoint_data_dicts)
+        self.insert_trackpoints(track_point_data)
 
     def clear_collection(self, collection_name):
         """
@@ -115,7 +105,7 @@ class GeolifeDB:
         """
         Clears all documents from the User, Activity, and Trackpoint collections.
         """
-        collections = ["User", "Activity", "Trackpoint"]
+        collections = [USER_COLLECTION, ACTIVITY_COLLECTION, TRACKPOINT_COLLECTION]
         for collection in collections:
             self.clear_collection(collection)
 
